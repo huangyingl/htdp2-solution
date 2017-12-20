@@ -1,0 +1,76 @@
+(define UNIT (square 10 "outline" "black"))
+
+(define (col n img)
+  (cond [(zero? (sub1 n)) img]
+        [else (above img (col (sub1 n) img))]))
+(define (row n img)
+  (cond [(zero? (sub1 n)) img]
+        [else (beside img (row (sub1 n) img))]))
+
+(define BACKG (col 10 (row 10 UNIT)))
+(define FIRE (square 8 "solid" "red"))
+(define AIR (circle 3 "solid" "blue"))
+
+(define-struct data [air n lof])
+
+(define (main ws)
+  (big-bang ws
+    [on-tick tock .5]
+    [to-draw render]
+    [on-key ke-h]
+    [stop-when end? render]))
+
+(define (end? ws)
+  (and (zero? (data-n ws))
+       (empty? (data-lof ws))))
+
+(define (ke-h ws k)
+  (cond [(key=? k "left")
+         (md-h ws (make-posn (modulo (sub1 (posn-x (data-air ws)))
+                                       10)
+                               (posn-y (data-air ws))))]
+        [(key=? k "right")
+         (md-h ws (make-posn (modulo (add1 (posn-x (data-air ws)))
+                                       10)
+                               (posn-y (data-air ws))))]
+        [(key=? k "up")
+         (md-h ws (make-posn (posn-x (data-air ws))
+                               (modulo (sub1 (posn-y (data-air ws)))
+                                       10)))]
+        [(key=? k "down")
+         (md-h ws (make-posn (posn-x (data-air ws))
+                               (modulo (add1 (posn-y (data-air ws)))
+                                       10)))]
+        [(key=? k " ")
+         (make-data (data-air ws)
+                    (data-n ws)
+                    (remove (data-air ws)
+                            (data-lof ws)))]
+        [else ws]))
+(define (md-h ws p)
+  (make-data p (data-n ws) (data-lof ws)))
+
+(define (tock ws)
+  (cond [(zero? (data-n ws)) ws]
+        [else (make-data (data-air ws)
+                         (sub1 (data-n ws))
+                         (cons (random-posn (data-lof ws))
+                               (data-lof ws)))]))
+(define (random-posn l)
+  (rp-h l l (make-posn (random 10) (random 10))))
+(define (rp-h l l2 x)
+  (cond [(empty? l) x]
+        [else (if (equal? (first l) x)
+                  (random-posn l2)
+                  (rp-h (rest l) l2 x))]))
+(define (render ws)
+  (place-image AIR
+               (+ 5 (* 10 (posn-x (data-air ws))))
+               (+ 5 (* 10 (posn-y (data-air ws))))
+               (r-h (data-lof ws))))
+(define (r-h l)
+  (cond [(empty? l) BACKG]
+        [else (place-image FIRE
+                           (+ 5 (* 10 (posn-x (first l))))
+                           (+ 5 (* 10 (posn-y (first l))))
+                           (r-h (rest l)))]))
