@@ -1,0 +1,104 @@
+(define BACKG (empty-scene 100 100))
+(define unit (square 10 "outline" "black"))
+(define (col img n)
+  (cond [(zero? (sub1 n)) img]
+        [else (above img (col img (sub1 n)))]))
+(define (row img n)
+  (cond [(zero? (sub1 n)) img]
+        [else (beside img (row img (sub1 n)))]))
+(define bg (col (row unit 10) 10))
+(define fire (square 8 "solid" "red"))
+(define airplane (circle 3 "solid" "blue"))
+
+(define-struct data [pos lop n time])
+
+(define (tock ws)
+  (cond [(zero? (data-n ws)) (make-data (t-h ws)
+                                        (data-lop ws)
+                                        (data-n ws)
+                                        (add1 (data-time ws)))]
+        [else (make-data (t-h ws)
+                         (cons (addposn (data-lop ws))
+                               (data-lop ws))
+                         (sub1 (data-n ws))
+                         (add1 (data-time ws)))]))
+(define (t-h ws)
+  (cond [(or (< (posn-x (data-pos ws)) 0)
+                                    (> (posn-x (data-pos ws)) 9))
+                                (make-posn (modulo (posn-x (data-pos ws)) 10)
+                                           (posn-y (data-pos ws)))]
+                               [(or (< (posn-y (data-pos ws)) 0)
+                                    (> (posn-y (data-pos ws)) 9))
+                                (make-posn (posn-x (data-pos ws))
+                                           (modulo (posn-y (data-pos ws)) 10))]
+                               [else (data-pos ws)]))
+(define (addposn l)
+  (a-h (make-posn (* 10 (random 10))
+                  (* 10 (random 10)))
+       l
+       l))
+(define (a-h p l l2)
+  (cond [(empty? l) p]
+        [else (if (equal? p (first l))
+                  (addposn l2)
+                  (a-h p (rest l) l2))]))
+(define (ke-h ws k)
+  (cond [(key=? k "up") (make-data (make-posn (posn-x (data-pos ws))
+                                              (sub1 (posn-y (data-pos ws))))
+                                   (data-lop ws)
+                                   (data-n ws)
+                                   (data-time ws))]
+        [(key=? k "down") (make-data (make-posn (posn-x (data-pos ws))
+                                                (add1 (posn-y (data-pos ws))))
+                                     (data-lop ws)
+                                     (data-n ws)
+                                     (data-time ws))]
+        [(key=? k "left") (make-data (make-posn (sub1 (posn-x (data-pos ws)))
+                                                (posn-y (data-pos ws)))
+                                     (data-lop ws)
+                                     (data-n ws)
+                                     (data-time ws))]
+        [(key=? k "right") (make-data (make-posn (add1 (posn-x (data-pos ws)))
+                                                 (posn-y (data-pos ws)))
+                                      (data-lop ws)
+                                      (data-n ws)
+                                      (data-time ws))]
+        [(key=? k " ") (make-data (make-posn (posn-x (data-pos ws))
+                                             (posn-y (data-pos ws)))
+                                  (remove (make-posn (* 10 (posn-x (data-pos ws)))
+                                                     (* 10 (posn-y (data-pos ws))))
+                                          (data-lop ws))
+                                  (data-n ws)
+                                  (data-time ws))]
+        [else ws]))
+
+(define (end? ws)
+  (and (empty? (data-lop ws))
+       (zero? (data-n ws))))
+(define (e-h ws)
+  (place-image (text (string-append "time: "
+                                    (number->string (data-time ws))
+                                    "s")
+                     15 "red")
+               50 20 (render ws)))
+
+(define (render ws)
+  (place-image airplane
+               (+ 5 (* 10 (posn-x (data-pos ws))))
+               (+ 5 (* 10 (posn-y (data-pos ws))))
+               (r-h (data-lop ws))))
+(define (r-h l)
+  (cond [(empty? l) bg]
+        [else (place-image fire
+                           (+ 5 (posn-x (first l)))
+                           (+ 5 (posn-y (first l)))
+                           (r-h (rest l)))]))
+
+(define (main ws)
+  (big-bang ws
+    [on-tick tock 1]
+    [to-draw render]
+    [on-key ke-h]
+    [stop-when end? e-h]))
+
+(main (make-data (make-posn 0 0) '() 10 0))
