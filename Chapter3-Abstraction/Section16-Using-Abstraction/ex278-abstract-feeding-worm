@@ -1,0 +1,97 @@
+(define R 5)
+(define W 150)
+(define H 150)
+(define MAX (/ W 10))
+(define WORM (circle R "solid" "red"))
+(define BACKG (empty-scene W H))
+(define MOVE 10)
+
+(define-struct data [lpos dir food])
+; ws is [(make-posn 50 50) direct]
+
+(define (render ws)
+  (local ((define (r-h x img)
+            (place-image WORM
+                         (posn-x x)
+                         (posn-y x)
+                         img)))
+    ; -- IN --
+    (place-image WORM
+                 (posn-x (data-food ws))
+                 (posn-y (data-food ws))
+                 (foldr r-h BACKG (data-lpos ws)))))
+
+
+
+(define (ke-h ws k)
+  (local ((define (helper x)
+            (make-data (data-lpos ws) x (data-food ws))))
+    ; -- IN --
+  (cond [(key=? k "left") (helper "l")]
+        [(key=? k "right") (helper "r")]
+        [(key=? k "up") (helper "u")]
+        [(key=? k "down") (helper "d")]
+        [else ws])))
+
+(define (tock ws)
+  (local ((define f (data-dir ws))
+          (define l (data-lpos ws))
+          (define x (posn-x (first (data-lpos ws))))
+          (define y (posn-y (first (data-lpos ws))))
+          (define (bl l)
+            (cond [(empty? (rest l)) '()]
+                  [else (cons (first l) (bl (rest l)))]))
+          (define (helper delta-x delta-y)
+            (make-data (if (equal? (first l) (data-food ws))
+                           (cons (make-posn (+ x delta-x) (+ y delta-y))
+                                 l)
+                           (cons (make-posn (+ x delta-x) (+ y delta-y))
+                                 (bl l)))
+                       f
+                       (if (equal? (first l) (data-food ws))
+                           (food-create (cons (make-posn (+ x MOVE) y)
+                                              l))
+                           (data-food ws)))))
+    ; -- IN --
+  (cond [(string=? f "l") (helper (- MOVE) 0)]
+        [(string=? f "r") (helper MOVE 0)]
+        [(string=? f "u") (helper 0 (- MOVE))]
+        [else (helper 0 (+ MOVE))])))
+
+(define (end? ws)
+  (or (< (posn-x (first (data-lpos ws))) R)
+      (< (posn-y (first (data-lpos ws))) R)
+      (> (posn-x (first (data-lpos ws))) (- W R))
+      (> (posn-y (first (data-lpos ws))) (- H R))
+      (member? (first (data-lpos ws))
+               (rest (data-lpos ws)))
+      ))
+(define (end-scene ws)
+  (local ((define (helper t)
+            (place-image t (/ W 2) (* 3/4 H) (render ws))))
+    ; -- IN --
+    (if (member? (first (data-lpos ws))
+                 (rest (data-lpos ws)))
+        (helper (text "worm hit itself" 20 "black"))
+        (helper (text "worm hit border" 20 "black")))))
+
+(define (food-create lop)
+  (local ((define (food-check-create candidate)
+            (if (member? candidate lop)
+                (food-create lop)
+                candidate)))
+    ; -- IN --
+    (food-check-create
+     (make-posn (+ (* 10 (random MAX)) 5)
+                (+ (* 10 (random MAX)) 5)))))
+
+(define (main ws)
+  (big-bang ws
+    [on-tick tock .3]
+    [to-draw render]
+    [on-key ke-h]
+    [stop-when end? end-scene]))
+
+(main (make-data (list (make-posn 45 45))
+                 "r"
+                 (food-create (list (make-posn 45 45)))))
